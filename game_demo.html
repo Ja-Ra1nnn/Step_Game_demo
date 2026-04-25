@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,maximum-scale=1">
+<title>一步一程</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#F0F5FA;color:#2D3436;user-select:none;-webkit-user-select:none}
+#app{height:100%;position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:1}
+.screen.active{opacity:1;pointer-events:auto;z-index:2}
+
+#title-screen{background:radial-gradient(ellipse at 30% 20%,rgba(98,0,234,.06) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(170,0,255,.05) 0%,transparent 50%),linear-gradient(170deg,#ECE9F5 0%,#F0F5FA 40%,#E8F0F8 100%)}
+.title-content{text-align:center;animation:fsu .8s ease both}
+.title-dots{display:flex;gap:8px;justify-content:center;margin-bottom:2rem}
+.title-dot{width:10px;height:10px;border-radius:50%;animation:db 1.4s ease-in-out infinite}
+.title-dot:nth-child(1){background:#00C853;animation-delay:0s}
+.title-dot:nth-child(2){background:#6200EA;animation-delay:.15s}
+.title-dot:nth-child(3){background:#FFC107;animation-delay:.3s}
+.title-dot:nth-child(4){background:#FF5252;animation-delay:.45s}
+.title-dot:nth-child(5){background:#AA00FF;animation-delay:.6s}
+@keyframes db{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-12px)}}
+@keyframes fsu{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+.game-title{font-size:2.8rem;font-weight:800;color:#6200EA;letter-spacing:.18em;margin-bottom:.4rem;text-shadow:0 2px 20px rgba(98,0,234,.3)}
+.game-subtitle{font-size:.95rem;color:#636E72;letter-spacing:.4em;margin-bottom:3rem;font-weight:300}
+.btn{border:none;border-radius:50px;padding:14px 48px;font-size:1.05rem;font-weight:600;cursor:pointer;transition:all .25s ease;letter-spacing:.12em;font-family:inherit;outline:none}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,#6200EA,#7C4DFF);color:#fff;box-shadow:0 4px 18px rgba(98,0,234,.3)}
+.btn-primary:hover{box-shadow:0 6px 24px rgba(98,0,234,.4);transform:translateY(-1px)}
+
+#game-screen{padding:.8rem 1rem;padding-top:max(.8rem,env(safe-area-inset-top));justify-content:flex-start}
+.game-header{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:420px;padding:.6rem 1rem;margin-bottom:.8rem;background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.header-group{display:flex;align-items:center;gap:6px}
+.header-label{font-size:.8rem;color:#B2BEC3;font-weight:400}
+.header-value{font-size:1.35rem;font-weight:800;min-width:1.6em;text-align:center;line-height:1}
+.level-value{color:#6200EA}
+.step-value{color:#2D3436;transition:color .3s ease}
+.step-value.warn{color:#FF9800}
+.step-value.danger{color:#FF5252}
+.step-value.pulse{animation:np .3s ease}
+@keyframes np{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}
+.btn-restart{width:36px;height:36px;border:none;border-radius:10px;background:#F7FAFC;color:#636E72;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s ease}
+.btn-restart:hover{background:#E2E8F0}
+.btn-restart:active{transform:scale(.9)}
+
+.board-wrap{display:flex;align-items:center;justify-content:center;flex:1;width:100%}
+.game-board{position:relative;background:#E8ECF1;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.1);touch-action:none;overflow:hidden}
+.game-board.board-enter{animation:bi .35s ease both}
+@keyframes bi{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+
+.cell{position:absolute;border-radius:4px;transition:background .25s ease}
+.cell-empty{background:#F7FAFC}
+.cell-wall{background:#546E7A;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
+.cell-trap{background:#FF5252;display:flex;align-items:center;justify-content:center}
+.cell-trap::after{content:'✕';color:rgba(255,255,255,.65);font-weight:700;line-height:1}
+.cell-bonus{background:#FFC107;display:flex;align-items:center;justify-content:center;animation:bg 2s ease-in-out infinite}
+.cell-bonus::after{content:'+1';color:rgba(0,0,0,.45);font-weight:800;line-height:1}
+@keyframes bg{0%,100%{box-shadow:0 0 0 0 rgba(255,193,7,.3)}50%{box-shadow:0 0 0 3px rgba(255,193,7,.15)}}
+.cell-start{background:#00C853;box-shadow:inset 0 1px 3px rgba(0,0,0,.1)}
+.cell-end{background:#AA00FF;animation:ep 1.8s ease-in-out infinite}
+@keyframes ep{0%,100%{box-shadow:0 0 0 0 rgba(170,0,255,.35)}50%{box-shadow:0 0 0 4px rgba(170,0,255,0)}}
+
+.player{position:absolute;background:linear-gradient(145deg,#7C4DFF,#6200EA);border-radius:5px;z-index:10;transition:left .11s ease-out,top .11s ease-out;box-shadow:0 2px 8px rgba(98,0,234,.3),inset 0 1px 1px rgba(255,255,255,.25)}
+.player::after{content:'';position:absolute;inset:22%;background:rgba(255,255,255,.28);border-radius:3px}
+
+.game-hint{padding:1rem 0 .5rem;text-align:center}
+.game-hint p{font-size:.78rem;color:#B2BEC3;letter-spacing:.15em}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(45,52,54,.35);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .3s ease;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-card{background:#fff;border-radius:22px;padding:2rem 1.8rem;width:calc(100% - 3rem);max-width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.12);transform:scale(.88) translateY(24px);transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.modal-overlay.active .modal-card{transform:scale(1) translateY(0)}
+.modal-icon{font-size:2.8rem;margin-bottom:.6rem;line-height:1.2}
+.modal-title{font-size:1.45rem;font-weight:700;margin-bottom:.4rem}
+.modal-text{font-size:.9rem;color:#636E72;margin-bottom:1rem;line-height:1.6}
+.modal-quote{font-size:.92rem;color:#6200EA;font-weight:500;padding:.8rem 1rem;margin-bottom:1.4rem;border-left:3px solid #6200EA;text-align:left;line-height:1.7;background:rgba(98,0,234,.08);border-radius:0 10px 10px 0}
+.modal-quote.hidden{display:none}
+.modal-actions{display:flex;gap:10px;justify-content:center}
+.modal-actions .btn{padding:12px 32px;font-size:.95rem}
+
+.float-text{position:absolute;font-weight:800;pointer-events:none;z-index:20;animation:ft .7s ease-out forwards;text-shadow:0 1px 4px rgba(0,0,0,.1)}
+@keyframes ft{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-36px) scale(1.2)}}
+
+.shake{animation:sh .35s ease}
+@keyframes sh{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title-screen" class="screen active">
+    <div class="title-content">
+      <div class="title-dots"><div class="title-dot"></div><div class="title-dot"></div><div class="title-dot"></div><div class="title-dot"></div><div class="title-dot"></div></div>
+      <h1 class="game-title">一步一程</h1>
+      <p class="game-subtitle">每一步 都算数</p>
+      <button class="btn btn-primary" id="btn-start">开始旅程</button>
+    </div>
+  </div>
+  <div id="game-screen" class="screen">
+    <div class="game-header">
+      <div class="header-group">
+        <span class="header-label">关卡</span>
+        <span class="header-value level-value" id="ui-level">1</span>
+        <span class="header-label">/ 10</span>
+      </div>
+      <div class="header-group">
+        <span class="header-label">步数</span>
+        <span class="header-value step-value" id="ui-steps">10</span>
+        <button class="btn-restart" id="btn-restart" title="重新开始">↻</button>
+      </div>
+    </div>
+    <div class="board-wrap"><div class="game-board board-enter" id="board"></div></div>
+    <div class="game-hint"><p>← ↑ ↓ → 或滑动屏幕移动</p></div>
+  </div>
+  <div class="modal-overlay" id="modal">
+    <div class="modal-card">
+      <div class="modal-icon" id="m-icon"></div>
+      <h2 class="modal-title" id="m-title"></h2>
+      <p class="modal-text" id="m-text"></p>
+      <div class="modal-quote hidden" id="m-quote"></div>
+      <div class="modal-actions" id="m-actions"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ========== LEVEL DATA ==========
+// 0=empty 1=wall 2=trap 3=bonus
+var LEVELS=[
+{rows:5,cols:5,grid:[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],start:[0,0],end:[4,4],steps:10,quote:'千里之行，始于足下。'},
+{rows:5,cols:5,grid:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,0,0,0],[0,0,0,0,0]],start:[0,0],end:[4,4],steps:11,quote:'慢一点，才能走得更远。'},
+{rows:5,cols:5,grid:[[0,0,0,0,0],[0,1,1,0,0],[0,0,0,0,0],[0,0,0,1,0],[0,0,2,0,0]],start:[0,0],end:[4,4],steps:11,quote:'人生没有白走的路，每一步都算数。'},
+{rows:6,cols:6,grid:[[0,0,1,0,0,0],[0,0,1,0,0,0],[0,0,0,0,0,0],[0,1,0,0,1,0],[0,1,3,0,1,0],[0,0,0,0,0,0]],start:[0,0],end:[5,5],steps:9,quote:'选择比努力更重要。'},
+{rows:6,cols:6,grid:[[0,0,0,0,0,0],[1,0,0,0,1,0],[0,0,1,0,0,0],[0,0,1,0,0,0],[0,0,2,0,0,0],[0,0,0,0,0,0]],start:[0,0],end:[5,5],steps:12,quote:'绕路，也是一种前进。'},
+{rows:7,cols:7,grid:[[0,0,0,0,0,0,0],[0,1,1,0,1,1,0],[0,0,0,0,0,0,0],[0,1,0,1,1,1,0],[0,0,0,0,0,0,0],[0,1,1,0,1,1,0],[0,0,0,0,0,0,0]],start:[0,0],end:[6,6],steps:14,quote:'看清方向，才能避开弯路。'},
+{rows:7,cols:7,grid:[[0,0,0,0,0,0,0],[1,1,0,0,0,1,1],[0,0,0,1,0,0,0],[0,1,0,1,0,1,0],[0,0,0,0,0,0,0],[0,1,2,0,3,1,0],[0,0,0,0,0,0,0]],start:[0,0],end:[6,6],steps:13,quote:'有时候，回头是为了更好地向前。'},
+{rows:8,cols:8,grid:[[0,0,0,0,0,0,0,0],[0,1,0,1,1,0,1,0],[0,0,0,0,0,0,0,0],[0,1,1,0,1,0,1,0],[0,0,0,0,1,0,0,0],[0,1,0,1,1,0,1,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]],start:[0,0],end:[7,7],steps:16,quote:'迷路不可怕，停下才可怕。'},
+{rows:8,cols:8,grid:[[0,0,0,0,0,0,0,0],[1,0,1,1,0,1,1,0],[0,0,0,0,0,0,0,0],[0,1,1,0,1,0,1,0],[0,0,0,0,0,3,0,0],[0,1,2,1,0,1,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]],start:[0,0],end:[7,7],steps:15,quote:'最难的路，往往通向最美的风景。'},
+{rows:9,cols:9,grid:[[0,0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1,0],[0,0,0,2,0,0,0,0,0],[1,0,1,0,1,0,1,0,0],[0,0,0,0,0,0,0,0,0],[0,2,1,0,1,0,1,0,1],[0,0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1,0],[0,0,0,0,0,0,0,0,0]],start:[0,0],end:[8,8],steps:18,quote:'一步一步，你已经走了很远。'}
+];
+
+// ========== AUDIO ==========
+var audioCtx=null;
+function ensureAudio(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+function playStep(){
+  if(!audioCtx)return;
+  try{
+    var t=audioCtx.currentTime,dur=.055+Math.random()*.025,sr=audioCtx.sampleRate,len=Math.floor(sr*dur);
+    var buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+    for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.exp(-(i/sr)*55);
+    var src=audioCtx.createBufferSource();src.buffer=buf;
+    var bp=audioCtx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=750+Math.random()*500;bp.Q.value=1.8;
+    var lp=audioCtx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2800;
+    var g=audioCtx.createGain();g.gain.value=.18;
+    src.connect(bp);bp.connect(lp);lp.connect(g);g.connect(audioCtx.destination);
+    src.start(t);src.stop(t+dur+.01);
+  }catch(e){}
+}
+function playBonus(){
+  if(!audioCtx)return;
+  try{
+    var t=audioCtx.currentTime;
+    [880,1320].forEach(function(f,i){
+      var o=audioCtx.createOscillator();o.type='sine';o.frequency.value=f;
+      var g=audioCtx.createGain();
+      g.gain.setValueAtTime(0,t+i*.07);
+      g.gain.linearRampToValueAtTime(.12,t+i*.07+.03);
+      g.gain.exponentialRampToValueAtTime(.001,t+i*.07+.25);
+      o.connect(g);g.connect(audioCtx.destination);o.start(t+i*.07);o.stop(t+i*.07+.25);
+    });
+  }catch(e){}
+}
+function playWin(){
+  if(!audioCtx)return;
+  try{
+    var t=audioCtx.currentTime;
+    [523,659,784].forEach(function(f,i){
+      var o=audioCtx.createOscillator();o.type='sine';o.frequency.value=f;
+      var g=audioCtx.createGain();
+      g.gain.setValueAtTime(0,t+i*.1);
+      g.gain.linearRampToValueAtTime(.1,t+i*.1+.04);
+      g.gain.exponentialRampToValueAtTime(.001,t+i*.1+.45);
+      o.connect(g);g.connect(audioCtx.destination);o.start(t+i*.1);o.stop(t+i*.1+.45);
+    });
+  }catch(e){}
+}
+function playFail(){
+  if(!audioCtx)return;
+  try{
+    var t=audioCtx.currentTime,o=audioCtx.createOscillator();o.type='sine';
+    o.frequency.setValueAtTime(320,t);o.frequency.exponentialRampToValueAtTime(140,t+.28);
+    var g=audioCtx.createGain();g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.28);
+    o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.3);
+  }catch(e){}
+}
+
+// ========== GAME STATE ==========
+var lvlIdx=0, pRow=0, pCol=0, stepsLeft=0, playing=false;
+
+var board=document.getElementById('board');
+var uiLevel=document.getElementById('ui-level');
+var uiSteps=document.getElementById('ui-steps');
+var modal=document.getElementById('modal');
+var mIcon=document.getElementById('m-icon');
+var mTitle=document.getElementById('m-title');
+var mText=document.getElementById('m-text');
+var mQuote=document.getElementById('m-quote');
+var mActions=document.getElementById('m-actions');
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+}
+
+// ========== BUILD BOARD ==========
+function buildBoard(){
+  var lv=LEVELS[lvlIdx];
+  var maxBoardH=window.innerHeight-160;
+  var maxBoardW=window.innerWidth-32;
+  var cellSize=Math.floor(Math.min(maxBoardW/lv.cols, maxBoardH/lv.rows));
+  cellSize=Math.max(cellSize,24);
+  var bw=cellSize*lv.cols, bh=cellSize*lv.rows;
+  var gap=Math.max(1,Math.floor(cellSize/20));
+
+  board.innerHTML='';
+  board.style.width=bw+'px';
+  board.style.height=bh+'px';
+  board.classList.remove('board-enter');
+  void board.offsetWidth;
+  board.classList.add('board-enter');
+
+  for(var r=0;r<lv.rows;r++){
+    for(var c=0;c<lv.cols;c++){
+      var el=document.createElement('div');
+      el.className='cell';
+      var v=lv.grid[r][c];
+      var x=c*cellSize+gap, y=r*cellSize+gap;
+      var s=cellSize-gap*2;
+      el.style.left=x+'px';
+      el.style.top=y+'px';
+      el.style.width=s+'px';
+      el.style.height=s+'px';
+      if(r===lv.start[0]&&c===lv.start[1]) el.classList.add('cell-start');
+      else if(r===lv.end[0]&&c===lv.end[1]) el.classList.add('cell-end');
+      else if(v===1) el.classList.add('cell-wall');
+      else if(v===2) el.classList.add('cell-trap');
+      else if(v===3) el.classList.add('cell-bonus');
+      else el.classList.add('cell-empty');
+      board.appendChild(el);
+    }
+  }
+
+  // Player element
+  var p=document.createElement('div');
+  p.id='player';
+  p.className='player';
+  var pad=Math.max(1,Math.floor(cellSize/12));
+  p.style.width=(cellSize-gap*2-pad*2)+'px';
+  p.style.height=(cellSize-gap*2-pad*2)+'px';
+  board.appendChild(p);
+
+  uiLevel.textContent=lvlIdx+1;
+  updatePlayerPos(cellSize,gap,pad);
+}
+
+function updatePlayerPos(cs,gp,pad){
+  var p=document.getElementById('player');
+  if(!p)return;
+  if(cs===undefined){
+    var lv=LEVELS[lvlIdx];
+    var maxBoardH=window.innerHeight-160;
+    var maxBoardW=window.innerWidth-32;
+    cs=Math.floor(Math.min(maxBoardW/lv.cols, maxBoardH/lv.rows));
+    cs=Math.max(cs,24);
+    gp=Math.max(1,Math.floor(cs/20));
+    pad=Math.max(1,Math.floor(cs/12));
+    p.style.width=(cs-gp*2-pad*2)+'px';
+    p.style.height=(cs-gp*2-pad*2)+'px';
+  }
+  p.style.left=(pCol*cs+gp+pad)+'px';
+  p.style.top=(pRow*cs+gp+pad)+'px';
+}
+
+function updateStepsUI(){
+  uiSteps.textContent=stepsLeft;
+  uiSteps.classList.remove('warn','danger');
+  if(stepsLeft<=3) uiSteps.classList.add('danger');
+  else if(stepsLeft<=5) uiSteps.classList.add('warn');
+}
+
+// ========== FLOATING TEXT ==========
+function floatText(r,c,text,color){
+  var lv=LEVELS[lvlIdx];
+  var maxBoardH=window.innerHeight-160;
+  var maxBoardW=window.innerWidth-32;
+  var cs=Math.floor(Math.min(maxBoardW/lv.cols, maxBoardH/lv.rows));
+  cs=Math.max(cs,24);
+  var el=document.createElement('div');
+  el.className='float-text';
+  el.textContent=text;
+  el.style.left=(c*cs+cs/2-12)+'px';
+  el.style.top=(r*cs)+'px';
+  el.style.fontSize=Math.max(14,cs*.5)+'px';
+  el.style.color=color||'#FFC107';
+  board.appendChild(el);
+  setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el)},750);
+}
+
+// ========== MOVE ==========
+function move(dr,dc){
+  if(!playing)return;
+  var lv=LEVELS[lvlIdx];
+  var nr=pRow+dr, nc=pCol+dc;
+  if(nr<0||nr>=lv.rows||nc<0||nc>=lv.cols)return;
+  var v=lv.grid[nr][nc];
+  if(v===1)return; // wall
+
+  pRow=nr; pCol=nc;
+  stepsLeft--;
+  updateStepsUI();
+  updatePlayerPos();
+  playStep();
+
+  // Pulse animation on step value
+  uiSteps.classList.remove('pulse');
+  void uiSteps.offsetWidth;
+  uiSteps.classList.add('pulse');
+
+  // Trap
+  if(v===2){
+    playing=false;
+    playFail();
+    floatText(nr,nc,'✕','#FF5252');
+    setTimeout(function(){showModal('fail')},350);
+    return;
+  }
+
+  // Bonus
+  if(v===3){
+    lv.grid[nr][nc]=0;
+    stepsLeft+=2; // +1 means net +1 after spending the step
+    updateStepsUI();
+    playBonus();
+    floatText(nr,nc,'+1','#FFC107');
+    // Clear the bonus cell visually
+    var cells=board.querySelectorAll('.cell');
+    var idx=nr*lv.cols+nc;
+    if(cells[idx]){
+      cells[idx].className='cell cell-empty';
+      cells[idx].style.background='#F7FAFC';
+    }
+  }
+
+  // End
+  if(nr===lv.end[0]&&nc===lv.end[1]){
+    playing=false;
+    playWin();
+    setTimeout(function(){showModal('win')},400);
+    return;
+  }
+
+  // Out of steps
+  if(stepsLeft<=0){
+    playing=false;
+    playFail();
+    setTimeout(function(){showModal('fail')},350);
+    return;
+  }
+}
+
+// ========== MODAL ==========
+function showModal(type){
+  mActions.innerHTML='';
+  mQuote.classList.add('hidden');
+
+  if(type==='win'){
+    mIcon.textContent='🎉';
+    if(lvlIdx>=LEVELS.length-1){
+      mTitle.textContent='全部通关！';
+      mText.textContent='你用智慧走完了这十段旅程。';
+      mQuote.textContent=LEVELS[lvlIdx].quote;
+      mQuote.classList.remove('hidden');
+      var b1=document.createElement('button');
+      b1.className='btn btn-primary';
+      b1.textContent='再来一次';
+      b1.onclick=function(){modal.classList.remove('active');lvlIdx=0;startLevel()};
+      mActions.appendChild(b1);
+    }else{
+      mTitle.textContent='第'+(lvlIdx+1)+'关 通过';
+      mText.textContent='剩余 '+stepsLeft+' 步';
+      mQuote.textContent=LEVELS[lvlIdx].quote;
+      mQuote.classList.remove('hidden');
+      var b2=document.createElement('button');
+      b2.className='btn btn-primary';
+      b2.textContent='下一关';
+      b2.onclick=function(){modal.classList.remove('active');lvlIdx++;startLevel()};
+      mActions.appendChild(b2);
+    }
+  }else{
+    mIcon.textContent='💫';
+    mTitle.textContent='步数用尽';
+    mText.textContent='没关系，人生总有重来的机会。';
+    var b3=document.createElement('button');
+    b3.className='btn btn-primary';
+    b3.textContent='重新开始';
+    b3.onclick=function(){modal.classList.remove('active');startLevel()};
+    mActions.appendChild(b3);
+  }
+
+  modal.classList.add('active');
+}
+
+// ========== START LEVEL ==========
+function startLevel(){
+  var lv=LEVELS[lvlIdx];
+  pRow=lv.start[0]; pCol=lv.start[1];
+  stepsLeft=lv.steps;
+  playing=true;
+  buildBoard();
+  updateStepsUI();
+  showScreen('game-screen');
+}
+
+// ========== INPUT: KEYBOARD ==========
+document.addEventListener('keydown',function(e){
+  if(!playing)return;
+  switch(e.key){
+    case'ArrowUp':case'w':case'W':e.preventDefault();move(-1,0);break;
+    case'ArrowDown':case's':case'S':e.preventDefault();move(1,0);break;
+    case'ArrowLeft':case'a':case'A':e.preventDefault();move(0,-1);break;
+    case'ArrowRight':case'd':case'D':e.preventDefault();move(0,1);break;
+  }
+});
+
+// ========== INPUT: TOUCH SWIPE ==========
+var touchStartX=0,touchStartY=0,touchStartTime=0;
+board.addEventListener('touchstart',function(e){
+  var t=e.touches[0];
+  touchStartX=t.clientX;
+  touchStartY=t.clientY;
+  touchStartTime=Date.now();
+},{passive:true});
+
+board.addEventListener('touchend',function(e){
+  if(!playing)return;
+  var t=e.changedTouches[0];
+  var dx=t.clientX-touchStartX;
+  var dy=t.clientY-touchStartY;
+  var dt=Date.now()-touchStartTime;
+  var absDx=Math.abs(dx), absDy=Math.abs(dy);
+  if(Math.max(absDx,absDy)<15||dt>600)return;
+  if(absDx>absDy){
+    move(0,dx>0?1:-1);
+  }else{
+    move(dy>0?1:-1,0);
+  }
+},{passive:true});
+
+// ========== BUTTONS ==========
+document.getElementById('btn-start').addEventListener('click',function(e){
+  e.preventDefault();
+  ensureAudio();
+  startLevel();
+});
+
+document.getElementById('btn-restart').addEventListener('click',function(){
+  if(!playing){
+    modal.classList.remove('active');
+  }
+  startLevel();
+});
+
+})();
+</script>
+</body>
+</html>
